@@ -6,27 +6,18 @@ import time
 import os
 from datetime import datetime
 
-# =============================
-# إعدادات التيليغرام - عبّيها أنت
-# =============================
-TELEGRAM_TOKEN = "ضع_التوكن_هنا"
-TELEGRAM_CHAT_ID = "ضع_الشات_ID_هنا"
+TELEGRAM_TOKEN = os.environ.get("8457905822:AAESRpGjU8aG4DrAmgbUclA68Lc9xx5-vPw", "")
+TELEGRAM_CHAT_ID = os.environ.get("98834829", "")
 
-# =============================
-# إعدادات السكريبت
-# =============================
-BENCHMARK = "^GSPC"       # S&P 500
-INTERVAL = "15m"          # الفريم الزمني
-PERIOD = "5d"             # كمية البيانات
-LEFT_BARS = 3             # Pivot Left
-RIGHT_BARS = 3            # Pivot Right
-SCAN_INTERVAL = 60 * 15  # كل 15 دقيقة بالثواني
+BENCHMARK = "^GSPC"
+INTERVAL = "15m"
+PERIOD = "5d"
+LEFT_BARS = 3
+RIGHT_BARS = 3
+SCAN_INTERVAL = 60 * 15
 
-STOCKS_FILE = "stocks.txt"  # ملف قائمة الأسهم
+STOCKS_FILE = "stocks.txt"
 
-# =============================
-# إرسال رسالة تيليغرام
-# =============================
 def send_telegram(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     data = {"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "HTML"}
@@ -35,20 +26,14 @@ def send_telegram(message):
     except Exception as e:
         print(f"خطأ في التيليغرام: {e}")
 
-# =============================
-# قراءة قائمة الأسهم
-# =============================
 def load_stocks():
     if not os.path.exists(STOCKS_FILE):
-        print(f"⚠️ ملف {STOCKS_FILE} غير موجود! أنشئه وضع فيه الأسهم.")
+        print(f"⚠️ ملف {STOCKS_FILE} غير موجود!")
         return []
     with open(STOCKS_FILE, "r") as f:
         stocks = [line.strip().upper() for line in f if line.strip()]
     return stocks
 
-# =============================
-# حساب Pivot Low/High
-# =============================
 def pivot_low(series, left, right):
     result = [np.nan] * len(series)
     for i in range(left, len(series) - right):
@@ -65,41 +50,28 @@ def pivot_high(series, left, right):
             result[i] = series[i]
     return result
 
-# =============================
-# تحليل سهم واحد
-# =============================
 def analyze(symbol):
     try:
-        # بيانات السهم والـ Benchmark
         df = yf.download(symbol, period=PERIOD, interval=INTERVAL, progress=False, auto_adjust=True)
         bench = yf.download(BENCHMARK, period=PERIOD, interval=INTERVAL, progress=False, auto_adjust=True)
 
         if df.empty or bench.empty or len(df) < 30:
             return None
 
-        # مزامنة الأوقات
         df, bench = df.align(bench, join='inner', axis=0)
-
         close = df['Close'].squeeze().values
         ref = bench['Close'].squeeze().values
 
         if len(close) < 30:
             return None
 
-        # حساب RS
         rs = close / ref * 100
-
-        # EMA 21
         rs_series = pd.Series(rs)
         ema21 = rs_series.ewm(span=21, adjust=False).mean().values
 
-        # Pivot
         pl = pivot_low(rs, LEFT_BARS, RIGHT_BARS)
         ph = pivot_high(rs, LEFT_BARS, RIGHT_BARS)
 
-        # =============================
-        # BUY Logic
-        # =============================
         last_low = np.nan
         high_after_last_low = np.nan
         low_found = False
@@ -116,9 +88,6 @@ def analyze(symbol):
                     and rs[i - 1] < high_after_last_low and rs[i] >= high_after_last_low):
                 buy_signal = True
 
-        # =============================
-        # SELL Logic
-        # =============================
         last_high = np.nan
         low_after_last_high = np.nan
         high_found = False
@@ -142,11 +111,9 @@ def analyze(symbol):
         print(f"خطأ في {symbol}: {e}")
         return None
 
-# =============================
-# الحلقة الرئيسية
-# =============================
 def run():
     print("🚀 السكانر شغال...")
+    send_telegram("🚀 السكانر بدأ التشغيل!")
     while True:
         stocks = load_stocks()
         if not stocks:
@@ -166,9 +133,8 @@ def run():
                     buy_list.append(symbol)
                 if result["sell"]:
                     sell_list.append(symbol)
-            time.sleep(1)  # تجنب الحظر
+            time.sleep(1)
 
-        # إرسال التنبيهات
         if buy_list:
             msg = f"🟢 <b>BUY Signal</b> | {now}\n\n" + "\n".join(f"• {s}" for s in buy_list)
             send_telegram(msg)
