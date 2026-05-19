@@ -6,8 +6,8 @@ import time
 import os
 from datetime import datetime
 
-TELEGRAM_TOKEN = os.environ.get("8457905822:AAESRpGjU8aG4DrAmgbUclA68Lc9xx5-vPw", "")
-TELEGRAM_CHAT_ID = os.environ.get("98834829", "")
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
 BENCHMARK = "^GSPC"
 INTERVAL = "15m"
@@ -22,7 +22,8 @@ def send_telegram(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     data = {"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "HTML"}
     try:
-        requests.post(url, data=data, timeout=10)
+        response = requests.post(url, data=data, timeout=10)
+        print(f"تيليغرام: {response.status_code} - {response.text}")
     except Exception as e:
         print(f"خطأ في التيليغرام: {e}")
 
